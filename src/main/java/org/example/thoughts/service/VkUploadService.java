@@ -38,6 +38,15 @@ public class VkUploadService {
         try {
             System.out.println("Starting VK upload process...");
 
+            if (photoData.length < 8 ||
+                    photoData[0] != (byte) 0x89 || photoData[1] != 'P' ||
+                    photoData[2] != 'N' || photoData[3] != 'G') {
+                System.err.println("[ERROR] Uploaded data does NOT have a valid PNG signature.");
+                throw new RuntimeException("Uploaded data is not a valid PNG image.");
+            } else {
+                System.out.println("[DEBUG] PNG signature check PASSED. Data length: " + photoData.length + " bytes.");
+            }
+
             // 1. Получаем URL для загрузки
             String uploadServerUrl = getUploadServer();
             System.out.println("Got upload server: " + uploadServerUrl);
@@ -86,13 +95,16 @@ public class VkUploadService {
 
     private JSONObject uploadPhotoToServer(String uploadUrl, byte[] photoData, String filename) {
         try {
+            System.out.println("[DEBUG] Uploading file to VK. Filename: " + filename);
+            System.out.println("[DEBUG] Upload URL: " + uploadUrl);
+
             HttpPost uploadFile = new HttpPost(uploadUrl);
 
             MultipartEntityBuilder builder = MultipartEntityBuilder.create();
             builder.addBinaryBody(
                     "file1",
                     photoData,
-                    ContentType.APPLICATION_OCTET_STREAM,
+                    ContentType.create("image/png"),
                     filename
             );
 
@@ -101,11 +113,14 @@ public class VkUploadService {
 
             try (CloseableHttpResponse response = httpClient.execute(uploadFile)) {
                 String responseString = EntityUtils.toString(response.getEntity());
+                System.out.println("[DEBUG] Raw response from VK upload server: " + responseString);
                 System.out.println("Upload server response: " + responseString);
                 return new JSONObject(responseString);
             }
 
         } catch (Exception e) {
+            System.err.println("[ERROR] Failed to upload photo to VK server: " + e.getMessage());
+            e.printStackTrace();
             throw new RuntimeException("Failed to upload photo to VK server: " + e.getMessage(), e);
         }
     }
@@ -129,7 +144,10 @@ public class VkUploadService {
             }
 
             JSONArray photos = jsonResponse.getJSONArray("response");
-            return photos.getJSONObject(0).getString("id");
+            Object idObj = photos.getJSONObject(0).get("id");
+            String photoId = String.valueOf(idObj);
+            System.out.println("[DEBUG] Photo saved with ID (as String): " + photoId);
+            return photoId;
 
         } catch (Exception e) {
             throw new RuntimeException("Failed to save photo to album: " + e.getMessage(), e);
