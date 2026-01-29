@@ -14,6 +14,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
+/// Задаём значения сервиса
 @Service
 public class VkUploadService {
 
@@ -29,11 +30,13 @@ public class VkUploadService {
     private final RestTemplate restTemplate;
     private final CloseableHttpClient httpClient;
 
+
     public VkUploadService(RestTemplate restTemplate, CloseableHttpClient httpClient) {
         this.restTemplate = restTemplate;
         this.httpClient = httpClient;
     }
 
+    /// Начинаем процесс подключения к ВК
     public String uploadPhotoToVk(byte[] photoData, String filename) {
         try {
             System.out.println("Starting VK upload process...");
@@ -47,23 +50,17 @@ public class VkUploadService {
                 System.out.println("[DEBUG] PNG signature check PASSED. Data length: " + photoData.length + " bytes.");
             }
 
-            // 1. Получаем URL для загрузки
+            /// Получаем URL для загрузки
             String uploadServerUrl = getUploadServer();
-            System.out.println("Got upload server: " + uploadServerUrl);
 
-            // 2. Загружаем фото на сервер VK
+            /// Загружаем фото на сервер VK
             JSONObject uploadResult = uploadPhotoToServer(uploadServerUrl, photoData, filename);
-            System.out.println("Upload result: " + uploadResult);
 
-            // 3. Сохраняем фото в альбом
+            /// Сохраняем фото в альбом
             String photoId = savePhotoToAlbum(uploadResult);
-            System.out.println("Photo saved with ID: " + photoId);
 
-            // 4. Получаем URL загруженного фото
-            String photoUrl = getPhotoUrl(photoId);
-            System.out.println("Photo URL: " + photoUrl);
-
-            return photoUrl;
+            /// Получаем URL загруженного фото и сразу возвращаем его
+            return getPhotoUrl(photoId);
 
         } catch (Exception e) {
             System.err.println("Error uploading photo to VK: " + e.getMessage());
@@ -71,6 +68,7 @@ public class VkUploadService {
         }
     }
 
+    /// Подключение к серверам ВК
     private String getUploadServer() {
         try {
             String url = "https://api.vk.com/method/photos.getUploadServer?" +
@@ -93,11 +91,9 @@ public class VkUploadService {
         }
     }
 
+    /// Загрузка фотографии на сервер
     private JSONObject uploadPhotoToServer(String uploadUrl, byte[] photoData, String filename) {
         try {
-            System.out.println("[DEBUG] Uploading file to VK. Filename: " + filename);
-            System.out.println("[DEBUG] Upload URL: " + uploadUrl);
-
             HttpPost uploadFile = new HttpPost(uploadUrl);
 
             MultipartEntityBuilder builder = MultipartEntityBuilder.create();
@@ -125,6 +121,7 @@ public class VkUploadService {
         }
     }
 
+    /// Сохранение фотографии в КОНКРЕТНОМ альбоме в ВК
     private String savePhotoToAlbum(JSONObject uploadResult) {
         try {
             String url = "https://api.vk.com/method/photos.save?" +
@@ -154,6 +151,7 @@ public class VkUploadService {
         }
     }
 
+    /// Проверка URL фотографии
     private String getPhotoUrl(String photoId) {
         try {
             String url = "https://api.vk.com/method/photos.getById?" +
@@ -179,6 +177,8 @@ public class VkUploadService {
         }
     }
 
+
+    /// Проверка доступа к VK
     public boolean checkVkAccess() {
         try {
             String url = "https://api.vk.com/method/photos.getAlbums?" +

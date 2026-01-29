@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.HashMap;
 import java.util.Map;
 
+/// Создаём контроллер на GET
 @RestController
 @RequestMapping("/api")
 @CrossOrigin(origins = "*")
@@ -21,6 +22,7 @@ public class DownloadController {
         this.vkDownloadService = vkDownloadService;
     }
 
+    /// Получение HTTP на работу с получением рандомной фотографией
     @GetMapping("/random-photo")
     public ResponseEntity<byte[]> getRandomPhoto() {
         try {
@@ -39,16 +41,17 @@ public class DownloadController {
                     .body(("Error: " + e.getMessage()).getBytes());
         }
     }
-    
+
+    /// Получение HTTP на работу с получением рандомной фотографией, отсортированной по годам
     @GetMapping("/filtered/photo-by-year")
     public ResponseEntity<byte[]> getPhotoByYear(@RequestParam("year") int year) {
         try {
             System.out.println("Request for photo by year: " + year);
 
-            // Проверка валидности года (например, от 2000 до 2030)
+            /// Проверка валидности года
             if (year < 2000 || year > 2030) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                        .body(("Invalid year. Please provide year between 2000 and 2030.").getBytes());
+                        .body(("Invalid year").getBytes());
             }
 
             byte[] photoData = vkDownloadService.getRandomPhotoByYear(year);
@@ -77,7 +80,7 @@ public class DownloadController {
                     .body(("Unexpected error: " + e.getMessage()).getBytes());
         }
     }
-    // Новый эндпоинт для проверки доступа к альбому
+    /// Эндпоинт для проверки доступа к альбому
     @GetMapping("/check-access")
     public ResponseEntity<Map<String, String>> checkAccess() {
         try {
@@ -94,6 +97,7 @@ public class DownloadController {
         }
     }
 
+    /// Эндпоинт для проверки текущего состояния сервиса
     @GetMapping("/health")
     public ResponseEntity<Map<String, String>> healthCheck() {
         Map<String, String> response = new HashMap<>();

@@ -9,6 +9,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.util.HashMap;
 import java.util.Map;
 
+/// Создаём контроллер на POST
 @RestController
 @RequestMapping("/api/upload")
 @CrossOrigin(origins = "*")
@@ -18,7 +19,7 @@ public class UploadController {
     public UploadController(VkUploadService vkUploadService) {
         this.vkUploadService = vkUploadService;
     }
-
+    /// Получение фотографии из телеграма
     @PostMapping("/photo")
     public ResponseEntity<Map<String, Object>> uploadPhoto(@RequestParam("photo") MultipartFile file) {
         Map<String, Object> response = new HashMap<>();
@@ -54,7 +55,7 @@ public class UploadController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
         }
     }
-
+    /// Перевод фотографии из *.png формата в байты и загрузка
     @PostMapping("/photo-bytes")
     public ResponseEntity<Map<String, Object>> uploadPhotoBytes(@RequestBody byte[] photoData,
                                                                 @RequestParam String filename) {
@@ -83,6 +84,7 @@ public class UploadController {
         }
     }
 
+    /// Эндпоинт контроля состояния
     @GetMapping("/health")
     public ResponseEntity<Map<String, Object>> uploadHealthCheck() {
         Map<String, Object> response = new HashMap<>();

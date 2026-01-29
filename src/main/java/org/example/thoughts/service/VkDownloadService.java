@@ -13,6 +13,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
+/// Задаём значения сервиса
 @Service
 public class VkDownloadService {
 
@@ -32,11 +33,12 @@ public class VkDownloadService {
         this.restTemplate = restTemplate;
     }
 
+    /// Начинаем процесс подключения к ВК
     public byte[] getRandomPhotoFromAlbum() {
         try {
             System.out.println("Getting photos from album: " + albumId + " in group: " + groupId);
 
-            // Формируем URL с токеном пользователя
+            /// Формируем URL с токеном пользователя
             String vkApiUrl = "https://api.vk.com/method/photos.get?" +
                     "owner_id=-" + groupId +
                     "&album_id=" + albumId +
@@ -44,12 +46,12 @@ public class VkDownloadService {
                     "&v=5.131" +
                     "&count=1000";
 
-            // Добавляем заголовки
+            /// Добавляем заголовки
             HttpHeaders headers = new HttpHeaders();
             headers.set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
             HttpEntity<String> entity = new HttpEntity<>(headers);
 
-            // Отправляем запрос к VK API
+            /// Отправляем запрос к VK API
             ResponseEntity<String> response = restTemplate.exchange(
                     vkApiUrl, HttpMethod.GET, entity, String.class);
 
@@ -66,22 +68,19 @@ public class VkDownloadService {
 
             JSONArray photos = jsonResponse.getJSONObject("response").getJSONArray("items");
 
+            /// Доп. проверка альбома
             if (photos.length() == 0) {
                 throw new RuntimeException("No photos found in album: " + albumId);
             }
 
-            System.out.println("Found " + photos.length() + " photos in album");
-
-            // Выбираем случайное фото
+            /// Выбираем случайное фото
             JSONObject randomPhoto = photos.getJSONObject(random.nextInt(photos.length()));
 
-            // Получаем URL в максимальном качестве
+            /// Получаем URL в максимальном качестве
             JSONArray sizes = randomPhoto.getJSONArray("sizes");
             String photoUrl = sizes.getJSONObject(sizes.length() - 1).getString("url");
 
-            System.out.println("Downloading photo from: " + photoUrl);
-
-            // Скачиваем фото
+            /// Скачиваем фото
             ResponseEntity<byte[]> photoResponse = restTemplate.exchange(
                     photoUrl, HttpMethod.GET, entity, byte[].class);
 
@@ -98,18 +97,18 @@ public class VkDownloadService {
             throw new RuntimeException("Failed to get photo from VK album: " + e.getMessage(), e);
         }
     }
-    // НОВЫЙ МЕТОД: Получение случайной фотографии по году
+    /// Получение случайной фотографии по году
     public byte[] getRandomPhotoByYear(int targetYear) {
         try {
             System.out.println("Getting photos from album for year: " + targetYear);
 
-            // Используем пагинацию для получения большего количества фотографий
+            /// Используем пагинацию для получения большего количества фотографий
             List<JSONObject> photosForYear = new ArrayList<>();
             int offset = 0;
-            int batchSize = 1000; // Максимальное количество за один запрос
+            int batchSize = 1000;
 
-            // Делаем несколько запросов для охвата большего количества фото
-            for (int i = 0; i < 10; i++) { // Максимум 10 запросов (до 10к фото)
+            /// Делаем несколько запросов для охвата большего количества фото
+            for (int i = 0; i < 10; i++) {
                 String vkApiUrl = "https://api.vk.com/method/photos.get?" +
                         "owner_id=-" + groupId +
                         "&album_id=" + albumId +
@@ -140,7 +139,7 @@ public class VkDownloadService {
                     break; // Больше фотографий нет
                 }
 
-                // Фильтруем фотографии по году
+                /// Фильтруем фотографии по году
                 for (int j = 0; j < photos.length(); j++) {
                     JSONObject photo = photos.getJSONObject(j);
                     if (photo.has("date")) {
@@ -156,27 +155,26 @@ public class VkDownloadService {
                 System.out.println("Batch " + (i + 1) + ": Found " + photos.length() +
                         " photos, " + photosForYear.size() + " for year " + targetYear);
 
-                // Если нашли достаточное количество фото за нужный год, можно остановиться
-                if (photosForYear.size() >= 10) { // Если нашли хотя бы 10 фото
+                /// Остановка цикла-поиска, если нашли достаточное количество фото за нужный год
+                if (photosForYear.size() >= 10) {
                     break;
                 }
 
                 offset += batchSize;
 
-                // Небольшая задержка между запросами, чтобы не нагружать API
+                /// Небольшая задержка между запросами, чтобы не нагружать API
                 Thread.sleep(100);
             }
 
+            /// Доп. проверка альбома
             if (photosForYear.isEmpty()) {
                 throw new RuntimeException("No photos found for year: " + targetYear);
             }
 
-            // Выбираем случайную фотографию из отфильтрованных
+            /// Выбираем случайную фотографию из отфильтрованных
             JSONObject selectedPhoto = photosForYear.get(random.nextInt(photosForYear.size()));
             JSONArray sizes = selectedPhoto.getJSONArray("sizes");
             String photoUrl = sizes.getJSONObject(sizes.length() - 1).getString("url");
-
-            System.out.println("Downloading photo for year " + targetYear + " from: " + photoUrl);
 
             HttpHeaders headers = new HttpHeaders();
             headers.set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
@@ -186,8 +184,6 @@ public class VkDownloadService {
                     photoUrl, HttpMethod.GET, entity, byte[].class);
 
             if (photoResponse.getStatusCode().is2xxSuccessful() && photoResponse.getBody() != null) {
-                System.out.println("Successfully downloaded photo for year " + targetYear +
-                        ", size: " + photoResponse.getBody().length + " bytes");
                 return photoResponse.getBody();
             } else {
                 throw new RuntimeException("Failed to download photo for year " + targetYear +
@@ -204,7 +200,7 @@ public class VkDownloadService {
         }
     }
 
-    // Вспомогательный метод для получения года из timestamp
+    /// Вспомогательный метод для получения года из timestamp
     private int getYearFromTimestamp(long timestamp) {
         LocalDateTime dateTime = LocalDateTime.ofInstant(
                 Instant.ofEpochSecond(timestamp),
@@ -213,7 +209,7 @@ public class VkDownloadService {
         return dateTime.getYear();
     }
 
-    // Метод для проверки доступности альбома
+    /// Метод для проверки доступности альбома
     public String checkAlbumAccess() {
         try {
             String url = "https://api.vk.com/method/photos.getAlbums?" +
