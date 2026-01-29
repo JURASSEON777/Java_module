@@ -39,7 +39,44 @@ public class DownloadController {
                     .body(("Error: " + e.getMessage()).getBytes());
         }
     }
+    
+    @GetMapping("/filtered/photo-by-year")
+    public ResponseEntity<byte[]> getPhotoByYear(@RequestParam("year") int year) {
+        try {
+            System.out.println("Request for photo by year: " + year);
 
+            // Проверка валидности года (например, от 2000 до 2030)
+            if (year < 2000 || year > 2030) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(("Invalid year. Please provide year between 2000 and 2030.").getBytes());
+            }
+
+            byte[] photoData = vkDownloadService.getRandomPhotoByYear(year);
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.IMAGE_JPEG);
+            headers.setContentLength(photoData.length);
+            headers.setContentDispositionFormData("attachment", "photo_" + year + ".jpg");
+
+            return new ResponseEntity<>(photoData, headers, HttpStatus.OK);
+
+        } catch (RuntimeException e) {
+            System.err.println("Error getting photo for year " + year + ": " + e.getMessage());
+
+            // Если фото не найдено, возвращаем 404 с сообщением
+            if (e.getMessage() != null && e.getMessage().contains("No photos found for year")) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(("No photos found for year: " + year).getBytes());
+            }
+
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(("Error: " + e.getMessage()).getBytes());
+        } catch (Exception e) {
+            System.err.println("Unexpected error in getPhotoByYear: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(("Unexpected error: " + e.getMessage()).getBytes());
+        }
+    }
     // Новый эндпоинт для проверки доступа к альбому
     @GetMapping("/check-access")
     public ResponseEntity<Map<String, String>> checkAccess() {

@@ -6,7 +6,11 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
-
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Random;
 
 @Service
@@ -93,6 +97,120 @@ public class VkDownloadService {
             e.printStackTrace();
             throw new RuntimeException("Failed to get photo from VK album: " + e.getMessage(), e);
         }
+    }
+    // НОВЫЙ МЕТОД: Получение случайной фотографии по году
+    public byte[] getRandomPhotoByYear(int targetYear) {
+        try {
+            System.out.println("Getting photos from album for year: " + targetYear);
+
+            // Используем пагинацию для получения большего количества фотографий
+            List<JSONObject> photosForYear = new ArrayList<>();
+            int offset = 0;
+            int batchSize = 1000; // Максимальное количество за один запрос
+
+            // Делаем несколько запросов для охвата большего количества фото
+            for (int i = 0; i < 10; i++) { // Максимум 10 запросов (до 10к фото)
+                String vkApiUrl = "https://api.vk.com/method/photos.get?" +
+                        "owner_id=-" + groupId +
+                        "&album_id=" + albumId +
+                        "&access_token=" + accessToken +
+                        "&v=5.131" +
+                        "&count=" + batchSize +
+                        "&offset=" + offset;
+
+                HttpHeaders headers = new HttpHeaders();
+                headers.set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
+                HttpEntity<String> entity = new HttpEntity<>(headers);
+
+                ResponseEntity<String> response = restTemplate.exchange(
+                        vkApiUrl, HttpMethod.GET, entity, String.class);
+
+                JSONObject jsonResponse = new JSONObject(response.getBody());
+
+                if (jsonResponse.has("error")) {
+                    JSONObject error = jsonResponse.getJSONObject("error");
+                    String errorMsg = error.getString("error_msg");
+                    int errorCode = error.getInt("error_code");
+                    throw new RuntimeException("VK API Error (" + errorCode + "): " + errorMsg);
+                }
+
+                JSONArray photos = jsonResponse.getJSONObject("response").getJSONArray("items");
+
+                if (photos.length() == 0) {
+                    break; // Больше фотографий нет
+                }
+
+                // Фильтруем фотографии по году
+                for (int j = 0; j < photos.length(); j++) {
+                    JSONObject photo = photos.getJSONObject(j);
+                    if (photo.has("date")) {
+                        long timestamp = photo.getLong("date");
+                        int photoYear = getYearFromTimestamp(timestamp);
+
+                        if (photoYear == targetYear) {
+                            photosForYear.add(photo);
+                        }
+                    }
+                }
+
+                System.out.println("Batch " + (i + 1) + ": Found " + photos.length() +
+                        " photos, " + photosForYear.size() + " for year " + targetYear);
+
+                // Если нашли достаточное количество фото за нужный год, можно остановиться
+                if (photosForYear.size() >= 10) { // Если нашли хотя бы 10 фото
+                    break;
+                }
+
+                offset += batchSize;
+
+                // Небольшая задержка между запросами, чтобы не нагружать API
+                Thread.sleep(100);
+            }
+
+            if (photosForYear.isEmpty()) {
+                throw new RuntimeException("No photos found for year: " + targetYear);
+            }
+
+            // Выбираем случайную фотографию из отфильтрованных
+            JSONObject selectedPhoto = photosForYear.get(random.nextInt(photosForYear.size()));
+            JSONArray sizes = selectedPhoto.getJSONArray("sizes");
+            String photoUrl = sizes.getJSONObject(sizes.length() - 1).getString("url");
+
+            System.out.println("Downloading photo for year " + targetYear + " from: " + photoUrl);
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
+            HttpEntity<String> entity = new HttpEntity<>(headers);
+
+            ResponseEntity<byte[]> photoResponse = restTemplate.exchange(
+                    photoUrl, HttpMethod.GET, entity, byte[].class);
+
+            if (photoResponse.getStatusCode().is2xxSuccessful() && photoResponse.getBody() != null) {
+                System.out.println("Successfully downloaded photo for year " + targetYear +
+                        ", size: " + photoResponse.getBody().length + " bytes");
+                return photoResponse.getBody();
+            } else {
+                throw new RuntimeException("Failed to download photo for year " + targetYear +
+                        ", status: " + photoResponse.getStatusCode());
+            }
+
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Thread interrupted while fetching photos", e);
+        } catch (Exception e) {
+            System.err.println("Error in getRandomPhotoByYear: " + e.getMessage());
+            e.printStackTrace();
+            throw new RuntimeException("Failed to get photo for year " + targetYear + ": " + e.getMessage(), e);
+        }
+    }
+
+    // Вспомогательный метод для получения года из timestamp
+    private int getYearFromTimestamp(long timestamp) {
+        LocalDateTime dateTime = LocalDateTime.ofInstant(
+                Instant.ofEpochSecond(timestamp),
+                ZoneId.systemDefault()
+        );
+        return dateTime.getYear();
     }
 
     // Метод для проверки доступности альбома
