@@ -162,8 +162,6 @@ public class VkDownloadService {
 
                 offset += batchSize;
 
-                /// Небольшая задержка между запросами, чтобы не нагружать API
-                Thread.sleep(100);
             }
 
             /// Доп. проверка альбома
@@ -190,9 +188,6 @@ public class VkDownloadService {
                         ", status: " + photoResponse.getStatusCode());
             }
 
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new RuntimeException("Thread interrupted while fetching photos", e);
         } catch (Exception e) {
             System.err.println("Error in getRandomPhotoByYear: " + e.getMessage());
             e.printStackTrace();
@@ -226,7 +221,7 @@ public class VkDownloadService {
             JSONObject jsonResponse = new JSONObject(response.getBody());
 
             if (jsonResponse.has("error")) {
-                return "Error: " + jsonResponse.getJSONObject("error").getString("error_msg");
+                throw new RuntimeException("VK API denied album access");
             }
 
             JSONArray albums = jsonResponse.getJSONObject("response").getJSONArray("items");
@@ -235,10 +230,10 @@ public class VkDownloadService {
                 return "Album '" + album.getString("title") + "' accessible. Photos: " + album.getInt("size");
             }
 
-            return "Album not found";
+            throw new RuntimeException("Album not found");
 
         } catch (Exception e) {
-            return "Error checking album: " + e.getMessage();
+            throw new RuntimeException("Unable to check album access", e);
         }
     }
 }

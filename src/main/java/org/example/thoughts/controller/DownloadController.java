@@ -6,6 +6,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.beans.factory.annotation.Value;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -13,10 +14,12 @@ import java.util.Map;
 /// Создаём контроллер на GET
 @RestController
 @RequestMapping("/api")
-@CrossOrigin(origins = "*")
 public class DownloadController {
 
     private final VkDownloadService vkDownloadService;
+
+    @Value("${service.api-key}")
+    private String apiKey;
 
     public DownloadController(VkDownloadService vkDownloadService) {
         this.vkDownloadService = vkDownloadService;
@@ -24,7 +27,11 @@ public class DownloadController {
 
     /// Получение HTTP на работу с получением рандомной фотографией
     @GetMapping("/random-photo")
-    public ResponseEntity<byte[]> getRandomPhoto() {
+    public ResponseEntity<byte[]> getRandomPhoto(
+            @RequestHeader(value = "X-API-Key", required = false) String suppliedKey) {
+        if (!apiKey.equals(suppliedKey)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
         try {
             byte[] photoData = vkDownloadService.getRandomPhotoFromAlbum();
 
@@ -38,13 +45,18 @@ public class DownloadController {
         } catch (Exception e) {
             System.err.println("Error in controller: " + e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(("Error: " + e.getMessage()).getBytes());
+                    .build();
         }
     }
 
     /// Получение HTTP на работу с получением рандомной фотографией, отсортированной по годам
     @GetMapping("/filtered/photo-by-year")
-    public ResponseEntity<byte[]> getPhotoByYear(@RequestParam("year") int year) {
+    public ResponseEntity<byte[]> getPhotoByYear(
+            @RequestHeader(value = "X-API-Key", required = false) String suppliedKey,
+            @RequestParam("year") int year) {
+        if (!apiKey.equals(suppliedKey)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
         try {
             System.out.println("Request for photo by year: " + year);
 
@@ -73,16 +85,20 @@ public class DownloadController {
             }
 
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(("Error: " + e.getMessage()).getBytes());
+                    .build();
         } catch (Exception e) {
             System.err.println("Unexpected error in getPhotoByYear: " + e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(("Unexpected error: " + e.getMessage()).getBytes());
+                    .build();
         }
     }
     /// Эндпоинт для проверки доступа к альбому
     @GetMapping("/check-access")
-    public ResponseEntity<Map<String, String>> checkAccess() {
+    public ResponseEntity<Map<String, String>> checkAccess(
+            @RequestHeader(value = "X-API-Key", required = false) String suppliedKey) {
+        if (!apiKey.equals(suppliedKey)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
         try {
             String accessInfo = vkDownloadService.checkAlbumAccess();
             Map<String, String> response = new HashMap<>();
