@@ -41,9 +41,11 @@ public class VkUploadService {
         try {
             System.out.println("Starting VK upload process...");
 
-            if (photoData.length < 8 ||
+            if (photoData == null || photoData.length < 8 ||
                     photoData[0] != (byte) 0x89 || photoData[1] != 'P' ||
-                    photoData[2] != 'N' || photoData[3] != 'G') {
+                    photoData[2] != 'N' || photoData[3] != 'G' ||
+                    photoData[4] != 0x0D || photoData[5] != 0x0A ||
+                    photoData[6] != 0x1A || photoData[7] != 0x0A) {
                 System.err.println("[ERROR] Uploaded data does NOT have a valid PNG signature.");
                 throw new RuntimeException("Uploaded data is not a valid PNG image.");
             } else {
@@ -101,7 +103,7 @@ public class VkUploadService {
                     "file1",
                     photoData,
                     ContentType.create("image/png"),
-                    filename
+                    filename == null ? "upload.png" : filename.replaceAll("[^a-zA-Z0-9._-]", "_")
             );
 
             HttpEntity multipart = builder.build();
@@ -109,8 +111,10 @@ public class VkUploadService {
 
             try (CloseableHttpResponse response = httpClient.execute(uploadFile)) {
                 String responseString = EntityUtils.toString(response.getEntity());
-                System.out.println("[DEBUG] Raw response from VK upload server: " + responseString);
-                System.out.println("Upload server response: " + responseString);
+                int status = response.getStatusLine().getStatusCode();
+                if (status < 200 || status >= 300) {
+                    throw new RuntimeException("VK upload server returned HTTP " + status);
+                }
                 return new JSONObject(responseString);
             }
 
